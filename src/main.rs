@@ -6,7 +6,7 @@ mod defaults;
 
 use std::collections::HashMap;
 use data::DataStructFork;
-use defaults::{ DEFAULT_IPFS_MULTIADDR, DEFAULT_TIMEOUT_SEC, DEFAULT_LINEAGE_NODE_URL};
+use defaults::{ DEFAULT_IPFS_MULTIADDR, DEFAULT_TIMEOUT_SEC, DEFAULT_LINEAGE_NODE_URL };
 use marine_rs_sdk::marine;
 use marine_rs_sdk::module_manifest;
 use marine_rs_sdk::MountedBinaryResult;
@@ -17,7 +17,6 @@ use types::Metadata;
 use types::Transaction;
 use types::{ SerdeMetadata, FinalMetadata, MetaContractResult, FinalMention };
 use types::{ JSONRPCFilter, FilterQuery, JSONRPCBody, JSONRPCResult };
-// use reqwest::Error;
 
 module_manifest!();
 
@@ -36,8 +35,8 @@ pub fn on_execute(
 ) -> MetaContractResult {
     let mut finals: Vec<FinalMetadata> = vec![];
     let final_mention: FinalMention;
-    let mut origin_cid = "".to_string();
-    let mut cid = "".to_string();
+    let parent_cid: String;
+    let mut cid: String = "".to_string();
     let mut content: HashMap<String, FinalMention> = HashMap::new();
 
     let serde_metadata: Result<SerdeMetadata, serde_json::Error> = serde_json::from_str(&transaction.data.clone());
@@ -61,7 +60,7 @@ pub fn on_execute(
          };
         }
 
-        origin_cid = tx_data.cid;
+        parent_cid = tx_data.cid;
         final_mention= FinalMention::new(tx_data.mentionable, tx_data.owner);
 
         for metadata in metadatas.clone(){
@@ -88,25 +87,43 @@ pub fn on_execute(
         Ok (mentions) => {
           content = mentions;
 
-          let exists = content.get(&origin_cid);
+          let exists = content.get(&parent_cid.clone());
 
           match exists {
             Some(mention) => {
               if transaction.public_key == mention.owner {
-                content.insert(origin_cid, final_mention);
-              }
+                content.insert(parent_cid.clone(), final_mention.clone());
+              } else {
+                let mut args:HashMap<String, String> = HashMap::new();
+                args.insert(String::from("data_key"), transaction.data_key.clone());
+                args.insert(String::from("meta_contract_id"), String::from("0x01"));
 
-              // if transaction.public_key == nft_owner {
-              // content.insert(origin_cid, final_mention);
-              // }
+                let body = make_search_metadatas_body(args);
+                let res = fetch(body, DEFAULT_LINEAGE_NODE_URL.to_string());
+                let deserialized_response: Result<JSONRPCResult, serde_json::Error> = serde_json::from_str(&res);
+
+                if let Ok(response) = deserialized_response {
+                    if let Some(metadata) = response.result.metadatas.into_iter().nth(0) {
+                        if transaction.public_key  == metadata.public_key {
+                          content.insert(parent_cid, final_mention);
+                        }
+                    } 
+                }
+              }
             }
-            None => { content.insert(origin_cid, final_mention); }              
+            None => { content.insert(parent_cid, final_mention); }              
           }
         }
-        Err(_)=> {}
+        Err(_)=> {
+          return MetaContractResult {
+            result: false,
+            metadatas: Vec::new(),
+            error_string: "Unable to deserialize ipfs content".to_string(),
+          }
+        }
       }
     } else {
-      content.insert(origin_cid, final_mention);
+      content.insert(parent_cid, final_mention);
     }
 
     let serialized_content= serde_json::to_string(&content);
@@ -207,6 +224,7 @@ pub fn get_timeout_string(timeout: u64) -> String {
 #[link(wasm_import_module = "host")]
 extern "C" {
   pub fn ipfs(cmd: Vec<String>) -> MountedBinaryResult;
+  pub fn curl(cmd: Vec<String>) -> MountedBinaryResult;
 }
 
 /**
@@ -226,21 +244,31 @@ pub fn is_nft_storage_link(link: &str) -> bool {
   link == "" || link.starts_with("https://nftstorage.link/ipfs/")
 }
 
-/* async fn get_nft_owner(data_key:String) -> Result<String, Error> {
-  let client = reqwest::Client::new();
+/**
+ * Get data from json rpc
+ */
+pub fn fetch(data: String, url: String) -> String {
+  let cmd = vec![
+   String::from("curl"),
+   String::from("-X"),
+   String::from("POST"),
+   String::from("-H"),
+   String::from("Content-type: application/json"),
+   String::from("-d"),
+   data,
+   url,
+  ];
 
-  let query = [
-    FilterQuery {
-      column: "data_key".to_string(),
-      op: "=".to_string(),
-      query: data_key
-    },
-    FilterQuery {
-      column: "meta_contract_id".to_string(),
-      op: "=".to_string(),
-      query: "0x01".to_string()
-    }
-  ].to_vec();
+  let result = curl(cmd);
+  String::from_utf8(result.stdout).unwrap()
+}
+
+pub fn make_search_metadatas_body(args:HashMap<String,String>) -> String {
+  let mut query: Vec<FilterQuery> =  Vec::new();
+
+  for (key, value) in args.iter(){
+     query.push(FilterQuery { column: key.to_string(), op: String::from("="), query: value.to_string() })
+  }
 
   let params = JSONRPCFilter {
     query,
@@ -250,19 +278,11 @@ pub fn is_nft_storage_link(link: &str) -> bool {
   };
 
   let body = JSONRPCBody {
-    jsonrpc: "2.0".to_string(),
-    method: "search_metadatas".to_string(),
+    jsonrpc: String::from("2.0"),
+    method: String::from("search_metadatas"),
     params,
-    id: "1".to_string()
+    id: String::from("1")
   };
 
-  let serialized_body = serde_json::to_string(&body).unwrap();
-
-  let response = client.post(DEFAULT_LINEAGE_NODE_URL).body(serialized_body).send().await?;
-  let metadata = response.json::<JSONRPCResult>().await?;
-
-  let nft = metadata.result.metadatas.into_iter().nth(0);
-  let owner_pk = if let Some(nft) = nft { nft.public_key } else { "".to_string() };
-
-  Ok(owner_pk)
-} */
+  serde_json::to_string(&body).unwrap_or_default()
+}

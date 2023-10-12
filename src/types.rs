@@ -80,7 +80,7 @@ pub struct Block {
 }
 
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct FinalMention {
    pub timestamp: u64,
    pub mentionable: bool,

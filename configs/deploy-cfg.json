@@ -5,7 +5,8 @@
         "name": "meta-contract",
         "path": "artifacts/meta-contract.wasm",
         "mounted_binaries": [
-          ["ipfs", "/usr/bin/ipfs"]
+          ["ipfs", "/usr/bin/ipfs"],
+          ["curl", "/bin/curl"]
         ],
         "logger_enabled": true,
         "mem_page_count": 100
