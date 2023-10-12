@@ -1,0 +1,54 @@
+module MetaContract declares *
+
+data FinalMetadata:
+  public_key: string
+  alias: string
+  content: string
+  loose: i64
+  version: string
+
+data MetaContract:
+  hash: string
+  token_key: string
+  meta_contract_id: string
+  public_key: string
+  cid: string
+
+data MetaContractResult:
+  result: bool
+  metadatas: []FinalMetadata
+  error_string: string
+
+data Metadata:
+  hash: string
+  token_key: string
+  data_key: string
+  meta_contract_id: string
+  token_id: string
+  alias: string
+  cid: string
+  public_key: string
+  version: string
+  loose: i64
+
+data Transaction:
+  hash: string
+  method: string
+  meta_contract_id: string
+  data_key: string
+  token_key: string
+  data: string
+  public_key: string
+  alias: string
+  timestamp: u64
+  chain_id: string
+  token_address: string
+  token_id: string
+  version: string
+  status: i64
+  mcdata: string
+
+service MetaContract("meta-contract"):
+  on_clone() -> bool
+  on_execute(contract: MetaContract, metadatas: []Metadata, transaction: Transaction) -> MetaContractResult
+  on_mint(contract: MetaContract, data_key: string, token_id: string, data: string) -> MetaContractResult

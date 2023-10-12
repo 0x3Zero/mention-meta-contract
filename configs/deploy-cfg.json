@@ -1,0 +1,15 @@
+{
+  "meta-contract": {
+    "modules": [
+      {
+        "name": "meta-contract",
+        "path": "artifacts/meta-contract.wasm",
+        "mounted_binaries": [
+          ["ipfs", "/usr/bin/ipfs"]
+        ],
+        "logger_enabled": true,
+        "mem_page_count": 100
+      }
+    ]
+  }
+}
