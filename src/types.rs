@@ -1,7 +1,7 @@
 use marine_rs_sdk::marine;
-use serde::{ Deserialize, Serialize };
-use serde_json::Value ;
-use std::time::{ SystemTime, UNIX_EPOCH }; 
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[marine]
 pub struct MetaContractResult {
@@ -20,7 +20,7 @@ pub struct FinalMetadata {
 }
 
 #[marine]
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Default, Clone, Deserialize)]
 pub struct Metadata {
     pub hash: String,
     pub token_key: String,
@@ -32,6 +32,12 @@ pub struct Metadata {
     pub public_key: String,
     pub version: String,
     pub loose: i64,
+}
+
+impl Metadata {
+    pub fn new() -> Self {
+        Default::default()
+    }
 }
 
 #[marine]
@@ -68,7 +74,6 @@ pub struct MetaContract {
 pub struct SerdeMetadata {
     pub cid: String,
     pub mentionable: Option<bool>,
-    pub owner: String
 }
 
 #[derive(Debug, Deserialize)]
@@ -79,47 +84,51 @@ pub struct Block {
     pub transaction: Value,
 }
 
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct FinalMention {
-   pub timestamp: u64,
-   pub mentionable: bool,
-   pub owner: String
+    pub timestamp: u64,
+    pub mentionable: bool,
 }
 
 impl FinalMention {
-   pub fn new(mentionable: Option<bool>, owner: String) -> Self {
+    pub fn new(mentionable: Option<bool>) -> Self {
         let now = SystemTime::now();
-        let timestamp= now.duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() as u64;
-        let mentionable=  if let Some(false) = mentionable {false} else {true};
+        let timestamp = now
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_millis() as u64;
+        let mentionable = if let Some(false) = mentionable {
+            false
+        } else {
+            true
+        };
 
         FinalMention {
             timestamp,
             mentionable,
-            owner 
         }
     }
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct FilterQuery{
-  pub column: String,
-  pub op: String,
-  pub query: String,
+pub struct FilterQuery {
+    pub column: String,
+    pub op: String,
+    pub query: String,
 }
 
 #[derive(Debug, Serialize)]
 pub struct FilterOrdering {
-  pub column: String,
-  pub sort: String,
+    pub column: String,
+    pub sort: String,
 }
 
 #[derive(Debug, Serialize)]
 pub struct JSONRPCFilter {
-  pub query: Vec<FilterQuery>,
-  pub ordering: Vec<Option<FilterOrdering>>,
-  pub from: u32,
-  pub to: u32 
+    pub query: Vec<FilterQuery>,
+    pub ordering: Vec<Option<FilterOrdering>>,
+    pub from: u32,
+    pub to: u32,
 }
 
 #[derive(Debug, Serialize)]
@@ -130,17 +139,16 @@ pub struct JSONRPCBody {
     pub id: String,
 }
 
-
 #[derive(Debug, Deserialize)]
 pub struct FdbMetadatasResult {
     pub success: bool,
     pub err_msg: String,
-    pub metadatas: Vec<Metadata>
+    pub metadatas: Vec<Metadata>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct JSONRPCResult{
+pub struct JSONRPCResult {
     pub jsonrpc: String,
     pub method: String,
-    pub result: FdbMetadatasResult
+    pub result: FdbMetadatasResult,
 }
