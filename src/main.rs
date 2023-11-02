@@ -10,7 +10,10 @@ use marine_rs_sdk::marine;
 use marine_rs_sdk::module_manifest;
 use marine_rs_sdk::MountedBinaryResult;
 use marine_rs_sdk::WasmLoggerBuilder;
+use serde_json::json;
+use serde_json::Value;
 use std::collections::HashMap;
+use std::string;
 use types::Block;
 use types::MetaContract;
 use types::Metadata;
@@ -85,22 +88,14 @@ pub fn on_execute(
                 if transaction.public_key == existing_mention.public_key {
                     content = final_mention;
                 } else {
-                    let mut args: HashMap<String, String> = HashMap::new();
-                    args.insert(String::from("data_key"), transaction.data_key.clone());
-                    args.insert(String::from("meta_contract_id"), String::from("0x01"));
-
-                    let body = make_search_metadatas_body(args);
-                    let res = fetch(body, DEFAULT_LINEAGE_NODE_URL.to_string());
-                    let deserialized_response: Result<JSONRPCResult, serde_json::Error> =
-                        serde_json::from_str(&res);
-
-                    if let Ok(response) = deserialized_response {
-                        if let Some(metadata) = response.result.metadatas.into_iter().nth(0) {
-                            if transaction.public_key == metadata.public_key {
-                                content = final_mention;
-                            }
-                        }
-                    }
+                    // ownerOf NFT able to disable mention here
+                    // Check ownerOf NFT from smart contract
+                    // TODO
+                    return MetaContractResult {
+                        result: false,
+                        metadatas: Vec::new(),
+                        error_string: "Not owner of the post".to_string(),
+                    };
                 }
             }
             Err(_) => {
@@ -119,6 +114,45 @@ pub fn on_execute(
 
     match serialized_content {
         Ok(content) => {
+            let exists_token = metadatas.iter().any(|m| {
+                m.public_key == "0x01" && m.alias == "token" && m.version == transaction.data_key
+            });
+
+            let exists_lineage_key = metadatas.iter().any(|m| {
+                m.public_key == "0x01"
+                    && m.alias == "lineage_key"
+                    && m.version == transaction.data_key
+            });
+
+            if !exists_token {
+                let content_1 = format!(
+                    r#"{{ 
+                        "address": "{}", 
+                        "chain": "{}", 
+                        "id": "{}"
+                    }}"#,
+                    transaction.token_address, transaction.chain_id, transaction.token_id
+                );
+
+                finals.push(FinalMetadata {
+                    public_key: "0x01".to_string(),
+                    alias: "token".to_string(),
+                    content: content_1,
+                    loose: 0,
+                    version: transaction.data_key.clone(),
+                });
+            }
+
+            if !exists_lineage_key {
+                finals.push(FinalMetadata {
+                    public_key: "0x01".to_string(),
+                    alias: "lineage_key".to_string(),
+                    content: transaction.data_key.clone(),
+                    loose: 0,
+                    version: transaction.data_key.clone(),
+                });
+            }
+
             finals.push(FinalMetadata {
                 public_key: transaction.meta_contract_id,
                 alias: "mentions".to_string(),
@@ -161,6 +195,7 @@ pub fn on_mint(
         error_string: "on_mint is not available".to_string(),
     }
 }
+
 /**
  * Get data from ipfs
  */
