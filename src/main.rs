@@ -114,14 +114,15 @@ pub fn on_execute(
 
     match serialized_content {
         Ok(content) => {
+            // TEMPORARY FIX
+            // For now, there's no way for 0x01 to request block 0x01 to update NFT metadata.
+            // For now, check if there's token, lineage_key data stored in 0x01 block. If not, add new block under 0x02
             let exists_token = metadatas.iter().any(|m| {
-                m.public_key == "0x01" && m.alias == "token" && m.version == transaction.data_key
+                m.public_key == "0x01" && m.alias == "token" && m.meta_contract_id == "0x01"
             });
 
             let exists_lineage_key = metadatas.iter().any(|m| {
-                m.public_key == "0x01"
-                    && m.alias == "lineage_key"
-                    && m.version == transaction.data_key
+                m.public_key == "0x01" && m.alias == "lineage_key" && m.meta_contract_id == "0x01"
             });
 
             if !exists_token {
@@ -139,7 +140,7 @@ pub fn on_execute(
                     alias: "token".to_string(),
                     content: content_1,
                     loose: 0,
-                    version: transaction.data_key.clone(),
+                    version: "".to_string(),
                 });
             }
 
@@ -149,7 +150,7 @@ pub fn on_execute(
                     alias: "lineage_key".to_string(),
                     content: transaction.data_key.clone(),
                     loose: 0,
-                    version: transaction.data_key.clone(),
+                    version: "".to_string(),
                 });
             }
 
